@@ -7,6 +7,7 @@ import curses
 import time
 import keyboard
 import pygame
+from pygame.constants import WINDOWSIZECHANGED
 from grid import Grid
 from math import pi, sin, cos
 from enum import Enum, auto
@@ -14,7 +15,6 @@ from enum import Enum, auto
 class AutoName(Enum):
     def _generate_next_value_(name, start, count, last_values):
         return name
-
 
 class State(AutoName):
     CONSOLE = auto()
@@ -278,11 +278,17 @@ class Sphere(Shape):
 class Torus(Shape):
     """Generates every point needed to draw a torus in 2D space"""
 
-    def __init__(self, start_x:int=0, start_y:int=0, start_z:int=0, start_rot_x:int=0, start_rot_y:int=0, control_rotation:bool=False):
+    def __init__(self, start_x:int=0, start_y:int=0, start_z:int=0, 
+                 start_rot_x:int=0, start_rot_y:int=0, control_rotation:bool=False, 
+                 window_size:tuple=None, detail_level = 1):
         super().__init__()
 
         self.window_width = super().get_width()
         self.window_height = super().get_height()
+
+        if window_size:
+            self.window_width = window_size[0]
+            self.window_height = window_size[1]
 
         self.offset = 2
         self.radius = 1
@@ -298,9 +304,11 @@ class Torus(Shape):
 
         self.control = control_rotation
 
-        self.distance = 14 + abs(start_z)
+        self.distance = abs(14 + start_z)
 
-        self.buffer = self.generate_buffer(0)
+        self.buffer = super().generate_buffer(0)
+
+        self.detail_level = 11 - int(detail_level/10)
         
     def update(self)->None:
         """Updates rotation"""
@@ -330,9 +338,9 @@ class Torus(Shape):
 
         angle_x = super().deg_to_rad(self.rot_x)
         cos_B, sin_B = cos(angle_x), sin(angle_x) 
-        
+
         #Agnle to rotate cirkle
-        for i in range(0, 360):
+        for i in range(0, 360, self.detail_level):
             angle_i = super().deg_to_rad(i)
 
             cos_i, sin_i = cos(angle_i), sin(angle_i)    
@@ -341,7 +349,7 @@ class Torus(Shape):
             circle_y = R1*sin_i
 
             #Angle to make cirkle
-            for j in range(0, 360):  
+            for j in range(0, 360, self.detail_level):  
                 angle_j = super().deg_to_rad(j)
                 cos_j, sin_j = cos(angle_j), sin(angle_j)   
 
@@ -361,7 +369,6 @@ class Torus(Shape):
                         points.append(point)
 
         return points
-
 
 
 def main(screen, runState:State):
@@ -401,8 +408,15 @@ def main(screen, runState:State):
         width, height = 1200, 900
         size = (width, height)
 
+
+        t1 = Torus(start_x=width/5 + 10, 
+                   start_y=height/5 + 20,
+                   start_z=-8,
+                   window_size=(int(width/2), int(height/2)),
+                   detail_level=20)
+
         pygame.init()
-        pygame.display.set_caption('Game of life')
+        pygame.display.set_caption('Shape render')
         screen = pygame.display.set_mode(size)
         clock = pygame.time.Clock()
         fps = 60
@@ -410,7 +424,7 @@ def main(screen, runState:State):
         black = (0, 0, 0)
         white = (255, 255, 255)
 
-        scale = 15
+        scale = 2
         offset = 1
 
         temp_grid = Grid(width, height, scale, offset)
@@ -435,30 +449,35 @@ def main(screen, runState:State):
     elif runState == State.PICTURE:
         # -- Render a detailed picture with pygame --
 
-        t1 = Torus(start_x=-30, start_rot_x=0, start_rot_y=90)
+        
 
         os.environ['SDL_VIDEO_CENTERD']='1'
 
         width, height = 1200, 900
-        size = (width, height)
+        size:tuple = (width, height)
+
+        t1 = Torus(start_x=width/4 - 50, 
+                   start_y=height/4 - 25,
+                   start_rot_x=90, 
+                   start_rot_y=45, 
+                   window_size=(int(width/2), int(height/2)))
 
         pygame.init()
-        pygame.display.set_caption('Game of life')
+        pygame.display.set_caption('Shape render')
         screen = pygame.display.set_mode(size)
         clock = pygame.time.Clock()
-        fps = 60
+        fps = 1
 
         black = (0, 0, 0)
         white = (255, 255, 255)
 
-        scale = 5
-        offset = 1
+        scale = 2
+        offset = 0
 
         screen.fill(black)
 
         temp_grid = Grid(width, height, scale, offset)
 
-        t1.update()
         t1.draw_shape(t1.torus_generator(), temp_grid, screen)
 
         pygame.display.update()
@@ -474,4 +493,4 @@ def main(screen, runState:State):
     
 
 if __name__ == '__main__':
-    curses.wrapper(main, State.PICTURE)
+    curses.wrapper(main, State.RENDER)
