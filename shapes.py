@@ -8,7 +8,18 @@ import time
 import keyboard
 import pygame
 from grid import Grid
-from math import sin, cos
+from math import pi, sin, cos
+from enum import Enum, auto
+
+class AutoName(Enum):
+    def _generate_next_value_(name, start, count, last_values):
+        return name
+
+
+class State(AutoName):
+    CONSOLE = auto()
+    RENDER = auto()
+    PICTURE = auto()
 
 class Shape:
     """General class for ploting shape in terminal"""
@@ -352,16 +363,18 @@ class Torus(Shape):
         return points
 
 
-def main(screen, console:bool=False):
+
+def main(screen, runState:State):
     """Function that runs the whole program"""
 
     #Shape declarations
-    d1:Shape = Torus(start_x=-30)
-    #d2 = Torus()
+    t1:Shape = Torus(start_x=-30)
 
     run = True
     
-    if console:
+    if runState == State.CONSOLE:
+        # -- Render shape in Console --
+
         #Curses setup
         curses.curs_set(0)
         screen.nodelay(True)
@@ -370,8 +383,8 @@ def main(screen, console:bool=False):
         while run:
             screen.erase()
             
-            d1.update()
-            d1.draw_shape_console(d1.torus_generator(), screen)
+            t1.update()
+            t1.draw_shape_console(t1.torus_generator(), screen)
             #d2.update(screen)
 
             screen.refresh()
@@ -379,7 +392,10 @@ def main(screen, console:bool=False):
 
             if keyboard.is_pressed('c'):
                 run = False
-    else:
+
+    elif runState == State.RENDER:
+        # -- Render shape with pygame --
+
         os.environ['SDL_VIDEO_CENTERD']='1'
 
         width, height = 1200, 900
@@ -408,16 +424,54 @@ def main(screen, console:bool=False):
                     run = False
 
                 if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_C:
+                    if event.key == pygame.K_ESCAPE:
                         run = False
-
-            color = (0, 14, 71)
             
-            d1.update()
-            d1.draw_shape(d1.torus_generator(), temp_grid, screen)
+            t1.update()
+            t1.draw_shape(t1.torus_generator(), temp_grid, screen)
 
             pygame.display.update()
 
+    elif runState == State.PICTURE:
+        # -- Render a detailed picture with pygame --
+
+        t1 = Torus(start_x=-30, start_rot_x=0, start_rot_y=90)
+
+        os.environ['SDL_VIDEO_CENTERD']='1'
+
+        width, height = 1200, 900
+        size = (width, height)
+
+        pygame.init()
+        pygame.display.set_caption('Game of life')
+        screen = pygame.display.set_mode(size)
+        clock = pygame.time.Clock()
+        fps = 60
+
+        black = (0, 0, 0)
+        white = (255, 255, 255)
+
+        scale = 5
+        offset = 1
+
+        screen.fill(black)
+
+        temp_grid = Grid(width, height, scale, offset)
+
+        t1.update()
+        t1.draw_shape(t1.torus_generator(), temp_grid, screen)
+
+        pygame.display.update()
+
+        while run:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    run = False
+
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        run = False
+    
 
 if __name__ == '__main__':
-    curses.wrapper(main, False)
+    curses.wrapper(main, State.PICTURE)
