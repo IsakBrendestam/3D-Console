@@ -6,6 +6,9 @@ import numpy as np
 import curses
 import time
 import keyboard
+import pygame
+from grid import Grid
+from math import sin, cos
 
 class Shape:
     """General class for ploting shape in terminal"""
@@ -13,22 +16,23 @@ class Shape:
     def __init__(self):
         self.window_width = os.get_terminal_size()[0]
         self.window_height = os.get_terminal_size()[1]
+        self.CHARACTERS = ".,-~:;=!*#$@"
 
-    def get_width(self):
+    def get_width(self)->int:
         return self.window_width
     
-    def get_height(self):
+    def get_height(self)->int:
         return self.window_height
 
-    def deg_to_rad(self, degrees):
+    def deg_to_rad(self, degrees:int)->int:
         """converts degrees to radians"""
         return (degrees*np.pi)/180
                
-    def print_char(self, x, y, char, screen):
+    def print_char(self, x:int, y:int, char:chr, screen)->None:
         """prints character at given position"""
         screen.addstr(*(y, x), char)
 
-    def generate_buffer(self, value):
+    def generate_buffer(self, value:int)->dict:
         """Generates a dictionary with keys for every pixel"""
         dic = {}
         for x in range(self.window_width):
@@ -37,10 +41,15 @@ class Shape:
 
         return dic
 
-    def draw_shape(self, points, chars, screen):
-        """Draws every point with a shade"""
-        for i in points: 
-            self.print_char(i[0], i[1], chars[i[2]], screen)                
+    def draw_shape_console(self, points:list, screen)->None:
+        """Draws every point with a shade in the console"""
+        for point in points: 
+            self.print_char(point[0], point[1], self.CHARACTERS[point[2]], screen)    
+
+    def draw_shape(self, points:list, some_grid:list, surface)->None:
+        """Draws every point with a shade in the pygame window"""
+        for point in points:
+            some_grid.draw_luminance(point, len(self.CHARACTERS), surface)
 
 class Cube(Shape):
     """Generates every point needed to draw a cube in 2D space"""
@@ -99,6 +108,7 @@ class Cube(Shape):
             self.rot_x += 3
             self.rot_y += 7
             self.rot_z += 2
+
         super().draw_shape(self.cube_generator(), self.characters, screen)
 
     def cube_generator(self):
@@ -257,7 +267,7 @@ class Sphere(Shape):
 class Torus(Shape):
     """Generates every point needed to draw a torus in 2D space"""
 
-    def __init__(self, start_x = 0, start_y = 0, start_z = 0, start_rot_x = 0, start_rot_y = 0, control_rotation = False):
+    def __init__(self, start_x:int=0, start_y:int=0, start_z:int=0, start_rot_x:int=0, start_rot_y:int=0, control_rotation:bool=False):
         super().__init__()
 
         self.window_width = super().get_width()
@@ -266,8 +276,8 @@ class Torus(Shape):
         self.offset = 2
         self.radius = 1
 
-        self.rot_x = 0 + start_rot_x
-        self.rot_y = 0 + start_rot_y
+        self.rot_x = start_rot_x
+        self.rot_y = start_rot_y
         
         self.K2 = 10
         self.K1 = (self.window_width*self.K2*3)/(8*(self.offset + self.radius))
@@ -281,9 +291,7 @@ class Torus(Shape):
 
         self.buffer = self.generate_buffer(0)
         
-        self.CHARACTERS = ".,-~:;=!*#$@"
-        
-    def update(self, screen):
+    def update(self)->None:
         """Updates rotation"""
         if self.control:
             if keyboard.is_pressed('d'):
@@ -297,9 +305,8 @@ class Torus(Shape):
         else:
             self.rot_x += 3
             self.rot_y += 7
-        super().draw_shape(self.torus_generator(), self.CHARACTERS, screen)
 
-    def torus_generator(self):
+    def torus_generator(self)->list:
         """Generates torus, with calculated shading"""
         points = []
 
@@ -308,24 +315,24 @@ class Torus(Shape):
         R1, R2 = self.radius, self.offset
 
         angle_y = super().deg_to_rad(self.rot_y)
-        cos_A, sin_A = np.cos(angle_y), np.sin(angle_y)  
+        cos_A, sin_A = cos(angle_y), sin(angle_y)  
 
         angle_x = super().deg_to_rad(self.rot_x)
-        cos_B, sin_B = np.cos(angle_x), np.sin(angle_x) 
+        cos_B, sin_B = cos(angle_x), sin(angle_x) 
         
         #Agnle to rotate cirkle
-        for i in range(0, 360, 6):
+        for i in range(0, 360):
             angle_i = super().deg_to_rad(i)
 
-            cos_i, sin_i = np.cos(angle_i), np.sin(angle_i)    
+            cos_i, sin_i = cos(angle_i), sin(angle_i)    
          
             circle_x = R2+R1*cos_i 
             circle_y = R1*sin_i
 
             #Angle to make cirkle
-            for j in range(0, 360, 6):  
+            for j in range(0, 360):  
                 angle_j = super().deg_to_rad(j)
-                cos_j, sin_j = np.cos(angle_j), np.sin(angle_j)   
+                cos_j, sin_j = cos(angle_j), sin(angle_j)   
 
                 x = circle_x * (cos_j*cos_B + sin_j*sin_A*sin_B) - (circle_y*cos_A*sin_B)
                 y = circle_x * (cos_j*sin_B - sin_j*sin_A*cos_B) + (circle_y*cos_A*cos_B)
@@ -345,31 +352,72 @@ class Torus(Shape):
         return points
 
 
-def main(screen):
+def main(screen, console:bool=False):
     """Function that runs the whole program"""
 
     #Shape declarations
-    d1 = Torus()
-    d2 = Torus()
-    
-    #Curses setup
-    curses.curs_set(0)
-    screen.nodelay(True)
-    
-    #Global update-loop
+    d1:Shape = Torus(start_x=-30)
+    #d2 = Torus()
+
     run = True
-    while run:
-        screen.erase()
+    
+    if console:
+        #Curses setup
+        curses.curs_set(0)
+        screen.nodelay(True)
         
-        d1.update(screen)
-        d2.update(screen)
+        #Global update-loop 
+        while run:
+            screen.erase()
+            
+            d1.update()
+            d1.draw_shape_console(d1.torus_generator(), screen)
+            #d2.update(screen)
 
-        screen.refresh()
-        time.sleep(0.01)
+            screen.refresh()
+            time.sleep(0.01)
 
-        if keyboard.is_pressed('c'):
-            run = False
+            if keyboard.is_pressed('c'):
+                run = False
+    else:
+        os.environ['SDL_VIDEO_CENTERD']='1'
+
+        width, height = 1200, 900
+        size = (width, height)
+
+        pygame.init()
+        pygame.display.set_caption('Game of life')
+        screen = pygame.display.set_mode(size)
+        clock = pygame.time.Clock()
+        fps = 60
+
+        black = (0, 0, 0)
+        white = (255, 255, 255)
+
+        scale = 15
+        offset = 1
+
+        temp_grid = Grid(width, height, scale, offset)
+
+        while run:
+            clock.tick(fps)
+            screen.fill(black)
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    run = False
+
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_C:
+                        run = False
+
+            color = (0, 14, 71)
+            
+            d1.update()
+            d1.draw_shape(d1.torus_generator(), temp_grid, screen)
+
+            pygame.display.update()
 
 
 if __name__ == '__main__':
-    curses.wrapper(main)
+    curses.wrapper(main, False)
