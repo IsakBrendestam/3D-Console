@@ -280,7 +280,7 @@ class Torus(Shape):
 
     def __init__(self, start_x:int=0, start_y:int=0, start_z:int=0, 
                  start_rot_x:int=0, start_rot_y:int=0, control_rotation:bool=False, 
-                 window_size:tuple=None, detail_level = 1):
+                 window_size:tuple=None, detail_level = 90):
         super().__init__()
 
         self.window_width = super().get_width()
@@ -449,8 +449,7 @@ def main(screen, runState:State):
     elif runState == State.PICTURE:
         # -- Render a detailed picture with pygame --
 
-        
-
+        #Seting up rendering in pygamess
         os.environ['SDL_VIDEO_CENTERD']='1'
 
         width, height = 1200, 900
@@ -493,4 +492,4 @@ def main(screen, runState:State):
     
 
 if __name__ == '__main__':
-    curses.wrapper(main, State.RENDER)
+    curses.wrapper(main, State.CONSOLE)
